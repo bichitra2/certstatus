@@ -1,0 +1,35 @@
+import ssl
+import datetime
+from flask import Flask, render_template
+
+app = Flask(__name__)
+
+# Certificate details
+hostname = "example.com"  # Change this to your domain
+port = 443
+
+@app.route('/')
+def check_certificate_status():
+    try:
+        cert = ssl.get_server_certificate((hostname, port))
+        x509 = ssl.PEM_cert_to_DER_cert(cert)
+        cert_info = ssl.DER_cert_to_PEM_cert(x509)
+        cert = ssl.cert_time_to_seconds(cert_info)
+
+        expiry_date = datetime.datetime.utcfromtimestamp(cert)
+        today = datetime.datetime.utcnow()
+        days_until_expiry = (expiry_date - today).days
+
+        if days_until_expiry > 0:
+            certificate_status = "Valid"
+        else:
+            certificate_status = "Expired"
+
+        return render_template('certificate_status.html', status=certificate_status)
+
+    except Exception as e:
+        error_message = f"Error checking certificate: {e}"
+        return render_template('certificate_status.html', status=error_message)
+
+if __name__ == "__main__":
+    app.run(debug=True)
