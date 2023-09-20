@@ -1,0 +1,22 @@
+import datetime
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+
+# Replace 'certificate.pem' with the path to your certificate file
+certificate_path = 'certificate.pem'
+
+# Load the certificate from the file
+with open(certificate_path, 'rb') as cert_file:
+    certificate_data = cert_file.read()
+
+# Parse the certificate
+certificate = x509.load_pem_x509_certificate(certificate_data, default_backend())
+
+# Get the current date
+current_date = datetime.datetime.utcnow()
+
+# Check if the certificate has expired
+if current_date > certificate.not_valid_after:
+    print("Certificate has expired.")
+else:
+    print("Certificate is still valid.")
