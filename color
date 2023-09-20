@@ -1,0 +1,96 @@
+import datetime
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from flask import Flask, render_template_string
+
+app = Flask(__name__)
+
+# Define a list of certificates to check
+certificates = [
+    {
+        "name": "Example Certificate 1",
+        "certificate_path": "certs/example1.crt",
+    },
+    {
+        "name": "Example Certificate 2",
+        "certificate_path": "certs/example2.crt",
+    },
+]
+
+# Function to check certificate expiry
+def check_certificate_expiry(certificate_path):
+    try:
+        with open(certificate_path, "rb") as cert_file:
+            cert_data = cert_file.read()
+            cert = x509.load_pem_x509_certificate(cert_data, default_backend())
+            expiration_date = cert.not_valid_after
+            current_date = datetime.datetime.now()
+            if current_date < expiration_date:
+                return "Valid"
+            else:
+                return "Expired"
+    except Exception as e:
+        return "Error: " + str(e)
+
+# Route to display certificate status in a webpage
+@app.route('/')
+def status():
+    certificate_status = []
+    for cert in certificates:
+        status = check_certificate_expiry(cert["certificate_path"])
+        if status == "Expired":
+            certificate_status.append({"name": cert["name"], "status": status, "highlight": "red"})
+        else:
+            certificate_status.append({"name": cert["name"], "status": status, "highlight": ""})
+
+    return render_template_string(
+        """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>BMW Certificate Portal</title>
+            <style>
+                body {
+                    text-align: center;
+                }
+                h1 {
+                    color: blue;
+                }
+                table {
+                    margin: 0 auto;
+                    border-collapse: collapse;
+                }
+                table, th, td {
+                    border: 1px solid black;
+                }
+                th, td {
+                    padding: 10px;
+                }
+                tr.expired {
+                    background-color: #FF0000;
+                    color: #FFFFFF;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>BMW Certificate Portal</h1>
+            <table>
+                <tr>
+                    <th>Certificate</th>
+                    <th>Status</th>
+                </tr>
+                {% for cert in certificate_status %}
+                <tr class="{{ cert.highlight }}">
+                    <td>{{ cert.name }}</td>
+                    <td>{{ cert.status }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </body>
+        </html>
+        """,
+        certificate_status=certificate_status,
+    )
+
+if __name__ == '__main__':
+    app.run(debug=True)
