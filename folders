@@ -1,0 +1,82 @@
+# Route to display certificate status in a webpage
+@app.route('/')
+def status():
+    certificate_status = []
+
+    for mal_code in os.listdir(certificates_folder):
+        mal_code_folder = os.path.join(certificates_folder, mal_code)
+        if os.path.isdir(mal_code_folder):
+            for env in os.listdir(mal_code_folder):
+                env_folder = os.path.join(mal_code_folder, env)
+                if os.path.isdir(env_folder):
+                    for cert_file in os.listdir(env_folder):
+                        if cert_file.endswith(".jks"):
+                            certificate_path = os.path.join(env_folder, cert_file)
+                            status, due_date = check_certificate_expiry(certificate_path)
+                            certificate_status.append({
+                                "mal_code": mal_code,
+                                "env": env,
+                                "name": cert_file,  # You can extract a meaningful name here
+                                "status": status,
+                                "due_date": due_date,
+                            })
+
+    return render_template_string(
+        """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>BMW Certificate Portal</title>
+            <style>
+                body {
+                    text-align: center;
+                }
+                h1 {
+                    color: blue;
+                }
+                table {
+                    margin: 0 auto;
+                    width: 80%;
+                    border-collapse: collapse;
+                }
+                th, td {
+                    border: 1px solid black;
+                    padding: 8px;
+                    text-align: center;
+                }
+                tr.expired {
+                    color: red;
+                    font-weight: bold;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>BMW Certificate Portal</h1>
+            <table>
+                <tr>
+                    <th>MAL Code</th>
+                    <th>Env</th>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Due Date</th>
+                </tr>
+                {% for cert in certificate_status %}
+                <tr class="{% if cert.status == 'Expired' %}expired{% endif %}">
+                    <td>{{ cert.mal_code }}</td>
+                    <td>{{ cert.env }}</td>
+                    <td>{{ cert.name }}</td>
+                    <td>{{ cert.status }}</td>
+                    <td>{{ cert.due_date }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </body>
+        </html>
+        """,
+        certificate_status=certificate_status,
+    )
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
