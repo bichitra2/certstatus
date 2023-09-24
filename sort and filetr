@@ -1,0 +1,115 @@
+import os
+import subprocess
+from flask import Flask, render_template
+from datatables import DataTables
+
+app = Flask(__name__)
+
+# Define the folder containing certificate JKS files
+certificates_folder = "certificates"
+
+# Function to check certificate expiry using the keytool command
+def check_certificate_expiry(certificate_path, password_path, alias):
+    try:
+        # Read the keystore password from the password file
+        with open(password_path, 'r') as password_file:
+            keystore_password = password_file.read().strip()
+
+        # Run the keytool command to check the certificate's validity using the provided alias
+        cmd = [
+            "keytool",
+            "-list",
+            "-keystore", certificate_path,
+            "-storepass", keystore_password,
+            "-alias", alias,
+        ]
+        result = subprocess.check_output(cmd, universal_newlines=True, stderr=subprocess.STDOUT)
+
+        # Parse the keytool output for the certificate validity
+        if "Certificate fingerprint" in result:
+            return "Valid"
+        else:
+            return "Expired"
+    except Exception as e:
+        return "Error: " + str(e)
+
+# Route to display certificate status in a webpage with DataTables
+@app.route('/')
+def status():
+    return render_template('certificate_status.html')
+
+# Data for DataTables
+@app.route('/data')
+def data():
+    certificate_status = []
+
+    for mal_code in os.listdir(certificates_folder):
+        mal_code_folder = os.path.join(certificates_folder, mal_code)
+        if os.path.isdir(mal_code_folder):
+            for env in os.listdir(mal_code_folder):
+                env_folder = os.path.join(mal_code_folder, env)
+                if os.path.isdir(env_folder):
+                    for cert_file in os.listdir(env_folder):
+                        if cert_file.endswith(".jks"):
+                            certificate_path = os.path.join(env_folder, cert_file)
+                            password_path = os.path.join(env_folder, "password.txt")
+
+                            # Define the alias name for the certificate
+                            alias = "your_alias_name_here"  # Replace with the actual alias name
+
+                            status = check_certificate_expiry(certificate_path, password_path, alias)
+                            certificate_status.append({
+                                "mal_code": mal_code,
+                                "env": env,
+                                "name": cert_file,
+                                "status": status,
+                            })
+
+    return DataTables(request, certificate_status, columns=['mal_code', 'env', 'name', 'status'])
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+2..
+HTML template
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BMW Certificate Portal</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.min.css">
+    <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/dataTables.bootstrap4.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/dataTables.bootstrap4.min.css">
+</head>
+<body>
+    <h1 style="color: blue; text-align: center;">BMW Certificate Portal</h1>
+    <table id="certificate-table" class="table table-striped">
+        <thead>
+            <tr>
+                <th>MAL Code</th>
+                <th>Env</th>
+                <th>Name</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <script>
+        $(document).ready(function() {
+            $('#certificate-table').DataTable({
+                ajax: {
+                    url: "{{ url_for('data') }}",
+                    dataSrc: ''
+                },
+                columns: [
+                    { data: 'mal_code' },
+                    { data: 'env' },
+                    { data: 'name' },
+                    { data: 'status' }
+                ]
+            });
+        });
+    </script>
+</body>
+</html>
