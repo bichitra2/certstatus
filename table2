@@ -1,0 +1,160 @@
+import os
+import subprocess
+from flask import Flask, render_template
+from datatables import DataTables
+
+app = Flask(__name__)
+
+# Define the folder containing certificate JKS files
+certificates_folder = "certificates"
+
+# Function to check certificate expiry using the keytool command
+def check_certificate_expiry(certificate_path, password_path, alias):
+    try:
+        # Read the keystore password from the password file
+        with open(password_path, 'r') as password_file:
+            keystore_password = password_file.read().strip()
+
+        # Run the keytool command to check the certificate's validity using the provided alias
+        cmd = [
+            "keytool",
+            "-list",
+            "-keystore", certificate_path,
+            "-storepass", keystore_password,
+            "-alias", alias,
+        ]
+        result = subprocess.check_output(cmd, universal_newlines=True, stderr=subprocess.STDOUT)
+
+        # Parse the keytool output for the certificate validity and expiry date
+        if "Certificate fingerprint" in result:
+            # Extract the expiry date from the keytool output
+            expiry_date = ""
+            for line in result.splitlines():
+                if line.strip().startswith("Valid from:"):
+                    expiry_date = line.strip().split("until: ")[1]
+            return "Valid", expiry_date
+        else:
+            return "Expired", ""
+    except Exception as e:
+        return "Error: " + str(e), ""
+
+# Route to display the certificate status page
+@app.route('/')
+def status():
+    certificate_status = []
+    expired_certificates = []
+
+    for mal_code in os.listdir(certificates_folder):
+        mal_code_folder = os.path.join(certificates_folder, mal_code)
+        for env in os.listdir(mal_code_folder):
+            env_folder = os.path.join(mal_code_folder, env)
+            for cert_file in os.listdir(env_folder):
+                if cert_file.endswith(".jks"):
+                    certificate_path = os.path.join(env_folder, cert_file)
+                    password_path = os.path.join(env_folder, "password.txt")
+
+                    # Define the alias name for the certificate
+                    alias = "your_alias_name_here"  # Replace with the actual alias name
+
+                    status, expiry_date = check_certificate_expiry(certificate_path, password_path, alias)
+                    certificate_info = {
+                        "mal_code": mal_code,
+                        "env": env,
+                        "name": cert_file,
+                        "status": status,
+                        "expiry_date": expiry_date,
+                    }
+
+                    if status == "Expired":
+                        expired_certificates.append(certificate_info)
+                    certificate_status.append(certificate_info)
+
+    return render_template('certificate_status.html', certificate_status=certificate_status, expired_certificates=expired_certificates)
+
+if __name__ == '__main__':
+    app.run(debug=True)
+----
+html--
+--
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BMW Certificate Portal</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/dataTables.bootstrap4.min.css">
+    <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/dataTables.bootstrap4.min.js"></script>
+</head>
+<body>
+    <h1 style="color: blue; text-align: center;">BMW Certificate Portal</h1>
+    
+    <h2 style="color: red; text-align: center;">Expired Certificates</h2>
+    <table id="expired-certificate-table" class="table table-striped">
+        <thead>
+            <tr>
+                <th>MAL Code</th>
+                <th>Env</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Expiry Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cert in expired_certificates %}
+            <tr>
+                <td>{{ cert.mal_code }}</td>
+                <td>{{ cert.env }}</td>
+                <td>{{ cert.name }}</td>
+                <td style="font-weight: bold; color: red;">{{ cert.status }}</td>
+                <td>{{ cert.expiry_date }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2 style="color: black; text-align: center;">All Certificates</h2>
+    <table id="certificate-table" class="table table-striped">
+        <thead>
+            <tr>
+                <th>MAL Code</th>
+                <th>Env</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Expiry Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cert in certificate_status %}
+            <tr>
+                <td>{{ cert.mal_code }}</td>
+                <td>{{ cert.env }}</td>
+                <td>{{ cert.name }}</td>
+                <td style="font-weight: {% if cert.status == 'Expired' %}bold{% endif %}; color: {% if cert.status == 'Expired' %}red{% else %}black{% endif %};">{{ cert.status }}</td>
+                <td>{{ cert.expiry_date }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <script>
+        $(document).ready(function() {
+            $('#expired-certificate-table').DataTable({
+                "searching": false,
+                "paging": false,
+                "info": false,
+            });
+
+            $('#certificate-table').DataTable({
+                columns: [
+                    { data: 'mal_code' },
+                    { data: 'env' },
+                    { data: 'name' },
+                    { data: 'status' },
+                    { data: 'expiry_date' }
+                ]
+            });
+        });
+    </script>
+</body>
+</html>
