@@ -1,0 +1,12 @@
+import yaml
+
+def validate_yaml(yaml_file_path):
+    try:
+        with open(yaml_file_path, 'r') as file:
+            yaml.safe_load(file)
+        print("YAML is valid.")
+    except yaml.YAMLError as exc:
+        print(f"YAML validation error: {exc}")
+
+# Usage
+validate_yaml('example.yaml')
