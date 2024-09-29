@@ -1,0 +1,36 @@
+import yaml
+import re
+
+def clean_yaml_whitespace(yaml_content: str) -> str:
+    """
+    Removes unnecessary whitespace from YAML content and returns cleaned YAML.
+    """
+    # Use regex to replace multiple spaces with a single space
+    yaml_content = re.sub(r'[ \t]+', ' ', yaml_content)
+
+    # Remove trailing spaces from each line
+    yaml_content = re.sub(r'[ \t]+$', '', yaml_content, flags=re.M)
+    
+    return yaml_content
+
+def format_yaml(input_file: str, output_file: str):
+    """
+    Reads a YAML file, cleans unnecessary spaces, and saves it back with proper formatting.
+    """
+    with open(input_file, 'r') as f:
+        yaml_content = f.read()
+
+    # Clean the YAML content
+    cleaned_yaml = clean_yaml_whitespace(yaml_content)
+
+    # Load the cleaned YAML using PyYAML
+    yaml_data = yaml.safe_load(cleaned_yaml)
+
+    # Dump the YAML content with correct indentation
+    with open(output_file, 'w') as f:
+        yaml.dump(yaml_data, f, default_flow_style=False, sort_keys=False, indent=4)
+
+if __name__ == "__main__":
+    input_file = "input.yaml"   # Path to your input YAML file
+    output_file = "output.yaml"  # Path where you want to save the formatted YAML file
+    format_yaml(input_file, output_file)
