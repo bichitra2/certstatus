@@ -1,0 +1,40 @@
+import subprocess
+from ruamel.yaml import YAML
+import sys
+
+def format_yaml(input_file, output_file):
+    yaml = YAML()
+    yaml.preserve_quotes = True  # Preserve quotes if needed
+    yaml.indent(mapping=2, sequence=4, offset=2)  # Set your indentation style
+
+    with open(input_file, 'r') as infile:
+        data = yaml.load(infile)  # Load YAML content
+
+    with open(output_file, 'w') as outfile:
+        yaml.dump(data, outfile)  # Write formatted YAML
+
+    print(f"Formatted YAML saved to {output_file}")
+
+def lint_yaml(file):
+    """Run yamllint on a YAML file"""
+    result = subprocess.run(['yamllint', file], capture_output=True, text=True)
+    
+    if result.returncode == 0:
+        print("YAML Linting Passed.")
+    else:
+        print("YAML Linting Issues:")
+        print(result.stdout)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print("Usage: python script.py <input_file> <output_file>")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+
+    # Step 1: Format YAML
+    format_yaml(input_file, output_file)
+
+    # Step 2: Run yamllint
+    lint_yaml(output_file)
