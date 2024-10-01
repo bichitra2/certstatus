@@ -1,0 +1,70 @@
+import io
+from ruamel.yaml import YAML
+from yamllint import linter, config
+import os
+
+# Function to load and validate YAML string using ruamel.yaml
+def load_yaml(yaml_string):
+    yaml = YAML()
+    yaml.preserve_quotes = True  # Preserve original formatting
+    yaml.allow_duplicate_keys = False  # Disallow duplicate keys
+
+    try:
+        # Load YAML from string buffer (without using yaml.dump)
+        data = yaml.load(yaml_string)
+        print("YAML loaded successfully.")
+        return data
+    except Exception as e:
+        raise ValueError(f"Syntax error in YAML: {e}")
+
+# Function to lint YAML string using yamllint
+def run_yamllint(yaml_string):
+    yamllint_config = """
+    extends: default
+    rules:
+      line-length:
+        max: 120  # Maximum line length
+        allow-non-breakable-inline-mappings: true
+      trailing-spaces: enable  # Check for trailing spaces
+      indentation:
+        spaces: 2  # Enforce 2-space indentation
+    """
+    
+    config_obj = config.YamlLintConfig(yamllint_config)
+    lint_issues = list(linter.run(yaml_string, config_obj))
+
+    # Capture and return linting issues
+    issues = [str(issue) for issue in lint_issues]
+    
+    return issues if issues else ["No linting issues found."]
+
+# Function to validate and lint the YAML using ruamel.yaml and yamllint
+def validate_and_lint_yaml(file_path):
+    if not os.path.exists(file_path):
+        return f"File '{file_path}' does not exist."
+
+    # Use StringIO buffer to load the YAML string
+    with open(file_path, 'r') as file:
+        yaml_content = file.read()
+    
+    buffer = io.StringIO(yaml_content)  # Use StringIO to emulate file-like object
+
+    # Step 1: Validate and check syntax using ruamel.yaml
+    try:
+        yaml_data = load_yaml(buffer.getvalue())  # Pass string to ruamel.yaml
+    except Exception as e:
+        return str(e)
+
+    # Step 2: Lint the YAML content using yamllint
+    linting_issues = run_yamllint(buffer.getvalue())
+    print("\nLinting issues:")
+    for issue in linting_issues:
+        print(issue)
+
+    return "YAML validation and linting completed."
+
+# Example usage
+if __name__ == "__main__":
+    file_path = 'example.yaml'  # Replace with the path to your YAML file
+    result = validate_and_lint_yaml(file_path)
+    print(result)
