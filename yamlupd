@@ -1,0 +1,92 @@
+import os
+from ruamel.yaml import YAML
+from yamllint import linter, config
+
+# Function to remove extra whitespace and format YAML
+def format_yaml(yaml_string):
+    yaml = YAML()
+    yaml.preserve_quotes = True  # Preserve quotes to retain style
+    yaml.indent(mapping=2, sequence=4, offset=2)  # Control indentation formatting
+
+    # Load YAML content
+    data = yaml.load(yaml_string)
+
+    # Dump back to a formatted string
+    formatted_yaml = yaml.dump(data)
+    
+    # Remove trailing whitespaces in each line
+    formatted_yaml = "\n".join([line.rstrip() for line in formatted_yaml.splitlines()])
+    
+    return formatted_yaml
+
+# Function to check for duplicate keys
+def check_duplicate_keys(yaml_string):
+    yaml = YAML()
+    yaml.allow_duplicate_keys = False
+    try:
+        yaml.load(yaml_string)
+        return "No duplicate keys found."
+    except Exception as e:
+        return f"Duplicate key error: {e}"
+
+# Function to perform linting using yamllint
+def run_yamllint(yaml_string):
+    # yamllint configuration for advanced checks
+    yamllint_config = """
+    extends: default
+    rules:
+      document-start: disable
+      line-length:
+        max: 120
+        allow-non-breakable-inline-mappings: true
+      trailing-spaces: true
+      indentation:
+        spaces: 2
+    """
+    
+    config_obj = config.YamlLintConfig(yamllint_config)
+    linting_issues = linter.run(yaml_string, config_obj)
+    
+    # Display linting issues if any
+    issues = []
+    for issue in linting_issues:
+        issues.append(str(issue))
+    
+    return issues if issues else "No linting issues found."
+
+# Main function to run all checks and format YAML
+def check_and_format_yaml(file_path):
+    if not os.path.exists(file_path):
+        return f"File '{file_path}' does not exist."
+    
+    with open(file_path, 'r') as file:
+        yaml_string = file.read()
+
+    # 1. Check for syntax issues and format the YAML
+    try:
+        formatted_yaml = format_yaml(yaml_string)
+        print("YAML formatted successfully.\n")
+    except Exception as e:
+        return f"Syntax error: {e}"
+
+    # 2. Check for duplicate keys
+    duplicate_key_check = check_duplicate_keys(yaml_string)
+    print(duplicate_key_check)
+
+    # 3. Run yamllint for additional checks
+    linting_issues = run_yamllint(yaml_string)
+    print("\nLinting issues:")
+    for issue in linting_issues:
+        print(issue)
+
+    # 4. Save formatted YAML back to the file (optional)
+    with open(file_path, 'w') as file:
+        file.write(formatted_yaml)
+
+    return "All checks completed and YAML formatted."
+
+# Example usage
+if __name__ == "__main__":
+    file_path = 'example.yaml'  # Replace with your YAML file path
+    result = check_and_format_yaml(file_path)
+    print(result)
