@@ -1,0 +1,67 @@
+import os
+from ruamel.yaml import YAML
+from yamllint import linter, config
+import io
+
+# Function to load and validate YAML content
+def validate_yaml(yaml_string):
+    yaml = YAML()
+    yaml.preserve_quotes = True  # Keep quotes as they are in the original YAML
+
+    # Load YAML from string
+    try:
+        data = yaml.load(yaml_string)
+    except Exception as e:
+        raise ValueError(f"YAML syntax error: {e}")
+
+    return data
+
+# Function to run yamllint for advanced checks
+def run_yamllint(yaml_string):
+    yamllint_config = """
+    extends: default
+    rules:
+      line-length:
+        max: 1000  # Set maximum line length to 1000
+      trailing-spaces: enable  # Ensure no trailing spaces
+      indentation:
+        spaces: 2  # Enforce 2-space indentation
+    """
+    
+    config_obj = config.YamlLintConfig(yamllint_config)
+    lint_issues = list(linter.run(yaml_string, config_obj))
+
+    # Capture linting issues
+    issues = [str(issue) for issue in lint_issues]
+
+    return issues if issues else ["No linting issues found."]
+
+# Main function to validate YAML files
+def validate_yaml_file(file_path):
+    if not os.path.exists(file_path):
+        return f"File '{file_path}' does not exist."
+
+    # Read the YAML file into a string
+    with open(file_path, 'r') as file:
+        yaml_content = file.read()
+
+    # Step 1: Validate YAML content
+    try:
+        validated_data = validate_yaml(yaml_content)
+        print("YAML loaded and validated successfully.")
+    except ValueError as e:
+        return str(e)
+
+    # Step 2: Run yamllint for linting
+    linting_issues = run_yamllint(yaml_content)
+    print("\nLinting issues:")
+    for issue in linting_issues:
+        print(issue)
+
+    return "YAML validation and linting completed."
+
+# Example usage
+if __name__ == "__main__":
+    file_path = 'example.yaml'  # Replace with your YAML file path
+    result = validate_yaml_file(file_path)
+    print(result)
