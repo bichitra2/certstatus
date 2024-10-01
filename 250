@@ -1,0 +1,83 @@
+import io
+import os
+from ruamel.yaml import YAML
+from yamllint import linter, config
+
+# Function to validate and load YAML using ruamel.yaml without writing it back
+def load_yaml_from_string(yaml_string):
+    yaml = YAML()
+    yaml.preserve_quotes = True  # Keep quotes as is
+    yaml.allow_duplicate_keys = False  # Prevent duplicate keys
+    try:
+        # Use ruamel.yaml to parse and validate YAML syntax
+        yaml_data = yaml.load(yaml_string)
+        return yaml_data, "YAML loaded successfully with no syntax issues."
+    except Exception as e:
+        return None, f"YAML syntax error: {e}"
+
+# Function to lint YAML using yamllint for advanced checks
+def run_yamllint(yaml_string):
+    # yamllint configuration to enforce max line length of 250
+    yamllint_config = """
+    extends: default
+    rules:
+      line-length:
+        max: 250  # Maximum line length
+        allow-non-breakable-inline-mappings: true
+      trailing-spaces: enable  # Check for trailing spaces
+      indentation:
+        spaces: 2  # Set indentation to 2 spaces
+    """
+    
+    config_obj = config.YamlLintConfig(yamllint_config)
+    linting_issues = list(linter.run(yaml_string, config_obj))
+
+    # Capture any linting issues found
+    issues = [str(issue) for issue in linting_issues]
+
+    return issues if issues else ["No linting issues found."]
+
+# Function to load YAML from file using io.StringIO and avoid file context errors
+def load_yaml_file_buffer(file_path):
+    if not os.path.exists(file_path):
+        return None, f"File '{file_path}' does not exist."
+
+    try:
+        # Load the file content into memory using io.StringIO
+        with open(file_path, 'r') as file:
+            yaml_content = file.read()
+
+        buffer = io.StringIO(yaml_content)
+        return buffer.getvalue(), "File loaded successfully."
+    except Exception as e:
+        return None, f"Error reading file: {e}"
+
+# Main function to load, validate, and lint YAML content
+def validate_yaml(file_path):
+    # Step 1: Load the YAML file using buffer
+    yaml_content, file_load_message = load_yaml_file_buffer(file_path)
+    if not yaml_content:
+        return file_load_message
+
+    print(file_load_message)
+
+    # Step 2: Load and validate YAML syntax and duplicate key check using ruamel.yaml
+    yaml_data, yaml_load_message = load_yaml_from_string(yaml_content)
+    if not yaml_data:
+        return yaml_load_message
+
+    print(yaml_load_message)
+
+    # Step 3: Run yamllint for additional checks (length, indentation, trailing spaces)
+    linting_issues = run_yamllint(yaml_content)
+    print("\nLinting issues:")
+    for issue in linting_issues:
+        print(issue)
+
+    return "YAML validation completed."
+
+# Example usage
+if __name__ == "__main__":
+    file_path = 'example.yaml'  # Replace with your YAML file path
+    result = validate_yaml(file_path)
+    print(result)
