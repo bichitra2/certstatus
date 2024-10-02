@@ -1,0 +1,110 @@
+import os
+import io
+from ruamel.yaml import YAML
+from yamllint import linter, config
+from datetime import datetime
+
+# Function to lint the YAML content with advanced checks (e.g. max length 1000)
+def run_yamllint(yaml_string):
+    yamllint_config = """
+    extends: default
+    rules:
+      line-length:
+        max: 1000  # Maximum line length
+        allow-non-breakable-inline-mappings: true
+      trailing-spaces: enable  # Check for trailing spaces
+      indentation:
+        spaces: 2  # Set indentation level to 2 spaces
+    """
+    
+    config_obj = config.YamlLintConfig(yamllint_config)
+    lint_issues = list(linter.run(yaml_string, config_obj))
+
+    # Collect linting issues
+    issues = [str(issue) for issue in lint_issues]
+    
+    return issues if issues else ["No linting issues found."]
+
+# Function to process YAML file from input and return loaded YAML data
+def load_yaml_from_buffer(file_content):
+    yaml = YAML()
+    yaml.preserve_quotes = True  # Preserve original quotes
+    buffer = io.StringIO(file_content)
+
+    try:
+        data = yaml.load(buffer)
+        return data
+    except Exception as e:
+        raise ValueError(f"YAML syntax error: {e}")
+
+# Function to check and fix issues (e.g., trailing spaces, indentation) without using yaml.dump
+def check_and_fix_yaml(yaml_content):
+    buffer = io.StringIO(yaml_content)
+    fixed_lines = []
+
+    for line in buffer:
+        # Remove trailing spaces from each line
+        fixed_lines.append(line.rstrip())
+
+    # Join lines back into the cleaned YAML string
+    return "\n".join(fixed_lines)
+
+# Main function to load, check, fix, and output the YAML file and report errors
+def process_yaml_file(input_file):
+    if not os.path.exists(input_file):
+        print(f"File '{input_file}' does not exist.")
+        return
+
+    # Step 1: Read YAML content from the file
+    with open(input_file, 'r') as file:
+        yaml_content = file.read()
+
+    # Step 2: Load and validate the YAML content
+    try:
+        yaml_data = load_yaml_from_buffer(yaml_content)
+        print("YAML loaded successfully.")
+    except Exception as e:
+        error_report = f"Error loading YAML: {e}"
+        print(error_report)
+        yaml_data = None
+
+    # Step 3: Run yamllint for validation and linting issues
+    linting_issues = run_yamllint(yaml_content)
+
+    # Step 4: Attempt to fix the YAML if needed
+    fixed_yaml_content = check_and_fix_yaml(yaml_content)
+
+    # Create an output folder for storing the fixed YAML and error report
+    output_dir = 'output'
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Generate unique filenames based on timestamp
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    output_yaml_file = os.path.join(output_dir, f"fixed_{timestamp}.yaml")
+    error_report_file = os.path.join(output_dir, f"error_report_{timestamp}.txt")
+
+    # Step 5: Save the fixed YAML content in the output folder
+    with open(output_yaml_file, 'w') as file:
+        file.write(fixed_yaml_content)
+    print(f"Fixed YAML saved to {output_yaml_file}")
+
+    # Step 6: Save error report (if any) in the output folder
+    if linting_issues or yaml_data is None:
+        with open(error_report_file, 'w') as file:
+            if yaml_data is None:
+                file.write(error_report + "\n")
+            file.write("Linting Issues:\n" + "\n".join(linting_issues) + "\n")
+        print(f"Error report saved to {error_report_file}")
+    else:
+        print("No errors found; no error report generated.")
+
+# Function to ask user for input YAML file name and process it
+def main():
+    # Step 7: Get YAML file name from the user
+    input_file = input("Enter the YAML file name to process: ").strip()
+    
+    # Process the YAML file
+    process_yaml_file(input_file)
+
+if __name__ == "__main__":
+    main()
