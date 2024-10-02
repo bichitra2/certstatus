@@ -1,0 +1,92 @@
+import os
+import io
+from ruamel.yaml import YAML
+from yamllint import linter, config
+
+# Function to load YAML content using buffer io
+def load_yaml_buffer(file_path):
+    yaml = YAML()
+    yaml.preserve_quotes = True  # Preserve quotes in the original YAML
+
+    try:
+        with io.open(file_path, 'r', encoding='utf-8') as file:
+            yaml_content = file.read()
+            data = yaml.load(yaml_content)  # Load YAML without using yaml.dump
+        return yaml_content, data
+    except Exception as e:
+        raise ValueError(f"Error loading YAML: {e}")
+
+# Function to check for duplicate keys
+def check_duplicate_keys(yaml_content):
+    yaml = YAML()
+    yaml.allow_duplicate_keys = False  # Disallow duplicate keys
+    try:
+        yaml.load(yaml_content)
+        return "No duplicate keys found."
+    except Exception as e:
+        return f"Duplicate key error: {e}"
+
+# Function to run yamllint with advanced rules (max line length 1000)
+def run_yamllint(yaml_content):
+    yamllint_config = """
+    extends: default
+    rules:
+      line-length:
+        max: 1000  # Set maximum line length
+        allow-non-breakable-inline-mappings: true
+      trailing-spaces: enable  # Ensure no trailing spaces
+      indentation:
+        spaces: 2  # Set indentation level to 2 spaces
+    """
+
+    config_obj = config.YamlLintConfig(yamllint_config)
+    lint_issues = list(linter.run(yaml_content, config_obj))
+
+    # Collect linting issues
+    issues = [str(issue) for issue in lint_issues]
+
+    return issues if issues else ["No linting issues found."]
+
+# Function to generate an error report file if issues are found
+def generate_error_report(file_path, issues):
+    report_file = f"{file_path}_error_report.txt"
+    with open(report_file, 'w') as report:
+        report.write("YAML Validation Errors:\n")
+        for issue in issues:
+            report.write(f"{issue}\n")
+    print(f"Error report generated: {report_file}")
+
+# Main function to process the YAML file
+def process_yaml_file(file_path):
+    if not os.path.exists(file_path):
+        print(f"File '{file_path}' does not exist.")
+        return
+
+    try:
+        # Step 1: Load YAML content using buffer IO
+        yaml_content, data = load_yaml_buffer(file_path)
+        print("YAML loaded successfully.")
+
+        # Step 2: Check for duplicate keys
+        duplicate_check_result = check_duplicate_keys(yaml_content)
+        print(duplicate_check_result)
+
+        # Step 3: Run yamllint for validation (max length, trailing spaces, indentation)
+        linting_issues = run_yamllint(yaml_content)
+        if "No linting issues found." not in linting_issues:
+            print("Linting issues found.")
+            generate_error_report(file_path, linting_issues)
+        else:
+            print("No linting issues found.")
+
+        # If no errors are found, print success message
+        if "Duplicate key error" not in duplicate_check_result and len(linting_issues) == 1:
+            print("YAML validation and formatting successful.")
+
+    except Exception as e:
+        print(f"Error processing YAML file: {e}")
+
+# Example usage where the user enters the YAML file name
+if __name__ == "__main__":
+    file_path = input("Enter the YAML file name (with extension): ")
+    process_yaml_file(file_path)
