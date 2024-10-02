@@ -1,0 +1,78 @@
+import os
+import io
+from ruamel.yaml import YAML
+from yamllint import linter, config
+
+# Function to load YAML from buffer and perform syntax and duplicate key check
+def load_and_check_yaml(yaml_string):
+    yaml = YAML()
+    yaml.preserve_quotes = True  # Preserve quotes in the YAML
+    yaml.allow_duplicate_keys = False  # Disallow duplicate keys
+
+    try:
+        # Load the YAML string using ruamel.yaml
+        data = yaml.load(io.StringIO(yaml_string))
+        return data, None  # Return loaded YAML data and no error
+    except Exception as e:
+        return None, f"YAML syntax or duplicate key error: {e}"
+
+# Function to run yamllint with advanced linting checks
+def run_yamllint(yaml_string):
+    # Custom yamllint configuration with max length 1000
+    yamllint_config = """
+    extends: default
+    rules:
+      line-length:
+        max: 1000  # Set max line length to 1000
+      trailing-spaces: enable  # Ensure no trailing spaces
+      indentation:
+        spaces: 2  # Enforce 2-space indentation
+    """
+
+    config_obj = config.YamlLintConfig(yamllint_config)
+    linting_issues = list(linter.run(yaml_string, config_obj))
+
+    # Capture linting issues
+    issues = [str(issue) for issue in linting_issues]
+
+    return issues if issues else ["No linting issues found."]
+
+# Main function to process YAML file and produce error report if necessary
+def process_yaml_file(file_name):
+    # Check if the file exists
+    if not os.path.exists(file_name):
+        return f"Error: File '{file_name}' does not exist."
+
+    # Load YAML file content into buffer
+    try:
+        with open(file_name, 'r') as file:
+            yaml_content = file.read()
+    except Exception as e:
+        return f"Error reading file '{file_name}': {e}"
+
+    # Step 1: Load and check the YAML for syntax and duplicate keys
+    yaml_data, error = load_and_check_yaml(yaml_content)
+    if error:
+        return f"YAML Load Error: {error}"
+
+    # Step 2: Run yamllint for linting issues
+    linting_issues = run_yamllint(yaml_content)
+    
+    # Step 3: Print or return all linting and error issues
+    report = []
+    
+    if linting_issues:
+        report.append("Linting Issues:")
+        report.extend(linting_issues)
+
+    # Return all errors as a formatted string
+    return "\n".join(report) if report else "No issues found, YAML is valid."
+
+# Entry point for user input and file processing
+if __name__ == "__main__":
+    # Ask user to input the file name
+    file_name = input("Enter the YAML file name to be processed: ").strip()
+    
+    # Process the file and print the results or error report
+    result = process_yaml_file(file_name)
+    print(result)
