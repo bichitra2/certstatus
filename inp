@@ -1,0 +1,125 @@
+import os
+import io
+from ruamel.yaml import YAML
+from yamllint import linter, config
+
+# Create the output directory if not exists
+def create_output_dir():
+    if not os.path.exists('output'):
+        os.makedirs('output')
+
+# Function to load the YAML file content using buffer IO
+def load_yaml_content(file_path):
+    try:
+        with io.open(file_path, 'r', encoding='utf-8') as file_buffer:
+            return file_buffer.read()
+    except Exception as e:
+        raise FileNotFoundError(f"Error loading YAML file: {e}")
+
+# Function to validate YAML using yamllint with advanced configuration
+def validate_yaml(yaml_string):
+    yamllint_config = """
+    extends: default
+    rules:
+      line-length:
+        max: 1000  # Set maximum line length to 1000
+        allow-non-breakable-inline-mappings: true
+      trailing-spaces: enable  # Ensure no trailing spaces
+      indentation:
+        spaces: 2  # Enforce 2-space indentation
+      document-start: disable  # Allow YAML without the '---' document start
+    """
+    
+    config_obj = config.YamlLintConfig(yamllint_config)
+    lint_issues = list(linter.run(yaml_string, config_obj))
+    issues = [str(issue) for issue in lint_issues]
+
+    return issues if issues else ["No linting issues found."]
+
+# Function to check for duplicate keys using ruamel.yaml
+def check_duplicate_keys(yaml_string):
+    yaml = YAML()
+    yaml.allow_duplicate_keys = False  # Disallow duplicate keys
+    try:
+        yaml.load(yaml_string)
+        return "No duplicate keys found."
+    except Exception as e:
+        return f"Duplicate key error: {e}"
+
+# Function to fix common issues in YAML string (trailing spaces, etc.)
+def fix_yaml(yaml_string):
+    yaml = YAML()
+    yaml.preserve_quotes = True  # Preserve quotes in the original YAML
+
+    # Load YAML content and format it
+    try:
+        data = yaml.load(yaml_string)
+    except Exception as e:
+        raise ValueError(f"Syntax error in YAML: {e}")
+
+    # Convert back to a YAML formatted string (removes extra spaces)
+    fixed_yaml = yaml.dump(data)
+    
+    # Remove trailing whitespaces
+    fixed_yaml = "\n".join([line.rstrip() for line in fixed_yaml.splitlines()])
+    
+    return fixed_yaml
+
+# Function to save the corrected YAML and the error report to the output folder
+def save_output(file_name, fixed_yaml, errors):
+    create_output_dir()
+    
+    output_yaml_path = os.path.join('output', file_name)
+    output_error_path = os.path.join('output', file_name + '_errors.txt')
+    
+    # Write fixed YAML content to the output file
+    with open(output_yaml_path, 'w', encoding='utf-8') as file:
+        file.write(fixed_yaml)
+    
+    # Write the error report to a separate file
+    with open(output_error_path, 'w', encoding='utf-8') as error_file:
+        for error in errors:
+            error_file.write(error + '\n')
+
+    print(f"Corrected YAML file saved to: {output_yaml_path}")
+    print(f"Error report saved to: {output_error_path}")
+
+# Main function to process the input YAML file
+def process_yaml_file(file_path):
+    try:
+        yaml_content = load_yaml_content(file_path)
+    except FileNotFoundError as e:
+        print(e)
+        return
+    
+    # Step 1: Validate YAML using yamllint
+    linting_issues = validate_yaml(yaml_content)
+    
+    # Step 2: Check for duplicate keys
+    duplicate_key_result = check_duplicate_keys(yaml_content)
+    
+    # Step 3: Fix YAML formatting issues
+    try:
+        fixed_yaml = fix_yaml(yaml_content)
+    except ValueError as e:
+        print(e)
+        return
+    
+    # Collect errors into a list for the report
+    errors = linting_issues if linting_issues else []
+    if duplicate_key_result != "No duplicate keys found.":
+        errors.append(duplicate_key_result)
+
+    # If there are no errors, notify the user and exit
+    if errors == ["No linting issues found."] and duplicate_key_result == "No duplicate keys found.":
+        print("No issues found. YAML is valid and formatted correctly.")
+        return
+
+    # Step 4: Save the corrected YAML and error report
+    file_name = os.path.basename(file_path)
+    save_output(file_name, fixed_yaml, errors)
+
+# Get the YAML file from user input
+if __name__ == "__main__":
+    yaml_file = input("Enter the path of the YAML file to process: ")
+    process_yaml_file(yaml_file)
