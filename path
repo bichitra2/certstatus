@@ -1,0 +1,107 @@
+import io
+import os
+from ruamel.yaml import YAML
+from yamllint import linter, config
+
+# Function to check for duplicate keys
+def check_duplicate_keys(yaml_data):
+    seen_keys = set()
+    for key, value in yaml_data.items():
+        if key in seen_keys:
+            return f"Duplicate key found: {key}"
+        seen_keys.add(key)
+    return None
+
+# Function to check for duplicate '- path:' entries
+def check_unique_paths(yaml_data):
+    paths = set()
+    for item in yaml_data:
+        if isinstance(item, dict) and 'path' in item:
+            path_value = item['path']
+            if path_value in paths:
+                return f"Duplicate '- path:' entry found: {path_value}"
+            paths.add(path_value)
+    return None
+
+# Function to validate using yamllint with a maximum line length of 1000
+def run_yamllint(yaml_string):
+    yamllint_config = """
+    extends: default
+    rules:
+      line-length:
+        max: 1000  # Maximum line length set to 1000
+        allow-non-breakable-inline-mappings: true
+      trailing-spaces: enable  # Ensure no trailing spaces
+      indentation:
+        spaces: 2  # Enforce 2-space indentation
+    """
+
+    config_obj = config.YamlLintConfig(yamllint_config)
+    lint_issues = list(linter.run(yaml_string, config_obj))
+
+    # Capture linting issues
+    issues = [str(issue) for issue in lint_issues]
+    
+    return issues if issues else None
+
+# Main function to process the YAML file
+def process_yaml(file_path):
+    # Check if the file exists
+    if not os.path.exists(file_path):
+        return f"File '{file_path}' does not exist."
+
+    try:
+        # Use io to avoid context manager issues
+        with io.open(file_path, 'r', encoding='utf-8') as file:
+            yaml_string = file.read()
+
+        # Initialize YAML parser
+        yaml = YAML(typ='safe')
+        
+        # Load the YAML content from the string (without dumping back)
+        yaml_data = yaml.load(yaml_string)
+
+        # Step 1: Check for duplicate merged keys
+        duplicate_key_error = check_duplicate_keys(yaml_data)
+        if duplicate_key_error:
+            return duplicate_key_error
+
+        # Step 2: Check for unique '- path:' entries
+        unique_path_error = check_unique_paths(yaml_data)
+        if unique_path_error:
+            return unique_path_error
+
+        # Step 3: Run yamllint with a maximum length of 1000 characters
+        linting_issues = run_yamllint(yaml_string)
+        if linting_issues:
+            return "\n".join(linting_issues)
+
+        # If no issues, print success message
+        return "YAML validation successful with no errors found."
+
+    except Exception as e:
+        return f"Error processing YAML: {e}"
+
+# Function to write error report
+def write_error_report(errors, file_path):
+    error_report_path = file_path.replace('.yaml', '_error_report.txt')
+    with open(error_report_path, 'w') as report_file:
+        report_file.write("YAML Error Report\n")
+        report_file.write("=================\n\n")
+        report_file.write(errors)
+    return f"Error report written to: {error_report_path}"
+
+# Main function to handle user input and error reporting
+if __name__ == "__main__":
+    # Get the file path from the user
+    file_path = input("Enter the YAML file name to process: ")
+
+    # Process the YAML file
+    result = process_yaml(file_path)
+
+    # If there are issues, write the error report; otherwise, print success message
+    if "successful" in result:
+        print(result)
+    else:
+        error_report = write_error_report(result, file_path)
+        print(error_report)
