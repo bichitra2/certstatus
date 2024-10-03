@@ -1,0 +1,122 @@
+import os
+import io
+import sys
+from ruamel.yaml import YAML
+from yamllint import linter, config
+from collections import defaultdict
+
+# Function to check for duplicate keys in YAML
+def check_duplicate_keys(yaml_string):
+    yaml = YAML()
+    yaml.allow_duplicate_keys = False  # Disallow duplicate keys
+
+    try:
+        yaml.load(yaml_string)
+        return "No duplicate keys found."
+    except Exception as e:
+        return f"Duplicate key error: {e}"
+
+# Function to check for unique `- path:` values under the `application` key
+def check_unique_paths(yaml_data):
+    path_set = set()
+    application_data = yaml_data.get('application', [])
+
+    if not isinstance(application_data, list):
+        return "The 'application' key should be a list."
+
+    for item in application_data:
+        if 'path' in item:
+            path_value = item['path']
+            if path_value in path_set:
+                return f"Duplicate 'path' value found: {path_value}"
+            path_set.add(path_value)
+    
+    return "No duplicate 'path' values found under 'application'."
+
+# Function to perform yamllint linting with advanced checks
+def run_yamllint(yaml_string):
+    yamllint_config = """
+    extends: default
+    rules:
+      line-length:
+        max: 1000  # Set max line length to 1000 characters
+        allow-non-breakable-inline-mappings: true
+      trailing-spaces: enable
+      indentation:
+        spaces: 2  # Enforce 2-space indentation
+    """
+
+    config_obj = config.YamlLintConfig(yamllint_config)
+    lint_issues = list(linter.run(yaml_string, config_obj))
+
+    issues = [str(issue) for issue in lint_issues]
+    return issues if issues else ["No linting issues found."]
+
+# Main function to validate and check YAML file
+def process_yaml_file(file_path):
+    error_report = []
+
+    if not os.path.exists(file_path):
+        return f"File '{file_path}' does not exist."
+
+    # Read YAML file using buffer (io.StringIO) to avoid context manager issues
+    with open(file_path, 'r') as file:
+        yaml_content = file.read()
+
+    # Initialize StringIO buffer for in-memory processing
+    yaml_buffer = io.StringIO(yaml_content)
+
+    yaml = YAML()
+
+    try:
+        # Load YAML content without dumping (only for validation)
+        yaml_data = yaml.load(yaml_buffer)
+    except Exception as e:
+        error_report.append(f"Syntax error while loading YAML: {e}")
+        generate_error_report(file_path, error_report)
+        return
+
+    # Step 1: Check for duplicate keys
+    duplicate_check_result = check_duplicate_keys(yaml_content)
+    if "Duplicate key error" in duplicate_check_result:
+        error_report.append(duplicate_check_result)
+
+    # Step 2: Check for unique 'path' values under 'application' key
+    if isinstance(yaml_data, dict):
+        unique_path_check = check_unique_paths(yaml_data)
+        if "Duplicate 'path'" in unique_path_check:
+            error_report.append(unique_path_check)
+
+    # Step 3: Run yamllint for advanced linting checks (line length, indentation, etc.)
+    linting_issues = run_yamllint(yaml_content)
+    for issue in linting_issues:
+        if "No linting issues found." not in issue:
+            error_report.append(issue)
+
+    # If no issues were found, print a success message
+    if not error_report:
+        print("YAML validation and formatting checks completed successfully.")
+    else:
+        # Generate error report file if there were issues
+        generate_error_report(file_path, error_report)
+
+# Function to generate an error report file with a suffix '_error_report'
+def generate_error_report(file_path, errors):
+    error_report_path = f"{os.path.splitext(file_path)[0]}_error_report.yaml"
+    
+    with open(error_report_path, 'w') as error_file:
+        error_file.write("YAML Validation Error Report\n")
+        error_file.write("="*30 + "\n")
+        for error in errors:
+            error_file.write(f"{error}\n")
+
+    print(f"Error report generated: {error_report_path}")
+
+# Main function to accept input from the user and process the file
+if __name__ == "__main__":
+    try:
+        # Get the YAML file path from the user input
+        file_path = input("Enter the YAML file path to be processed: ").strip()
+        process_yaml_file(file_path)
+    except KeyboardInterrupt:
+        sys.exit("\nProcess interrupted.")
