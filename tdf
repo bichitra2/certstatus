@@ -1,0 +1,106 @@
+import os
+import io
+from ruamel.yaml import YAML
+from yamllint import linter, config
+from collections import defaultdict
+
+# Function to load YAML content from a file using buffer IO
+def load_yaml_file(file_path):
+    yaml = YAML()
+    yaml.preserve_quotes = True  # Preserve formatting
+    
+    try:
+        with io.open(file_path, 'r', encoding='utf-8') as file_buffer:
+            yaml_content = file_buffer.read()
+            data = yaml.load(yaml_content)
+        return data, yaml_content
+    except Exception as e:
+        raise ValueError(f"Error loading YAML file: {e}")
+
+# Function to run yamllint for syntax, line length, and other issues
+def run_yamllint(yaml_string):
+    yamllint_config = """
+    extends: default
+    rules:
+      line-length:
+        max: 1000  # Maximum line length for this task
+      trailing-spaces: enable  # Ensure no trailing spaces
+      indentation:
+        spaces: 2  # Enforce 2-space indentation
+    """
+    
+    config_obj = config.YamlLintConfig(yamllint_config)
+    lint_issues = list(linter.run(yaml_string, config_obj))
+
+    # Capture linting issues
+    issues = [str(issue) for issue in lint_issues]
+
+    return issues if issues else []
+
+# Function to check for duplicate merged keys
+def check_duplicate_keys(yaml_string):
+    yaml = YAML()
+    yaml.allow_duplicate_keys = False  # Disallow duplicate keys
+    try:
+        yaml.load(yaml_string)
+        return "No duplicate keys found."
+    except Exception as e:
+        return f"Duplicate key error: {e}"
+
+# Function to check that "- path:" under tdFrameworkFiles are unique
+def check_unique_paths(yaml_data):
+    if 'application' in yaml_data and 'tdFrameworkFiles' in yaml_data['application']:
+        paths = [item.get('path') for item in yaml_data['application']['tdFrameworkFiles'] if 'path' in item]
+        unique_paths = set(paths)
+
+        if len(paths) != len(unique_paths):
+            return "Error: Non-unique paths found under tdFrameworkFiles in the 'application' section."
+    
+    return "All paths under 'tdFrameworkFiles' are unique."
+
+# Main function to check and validate YAML
+def check_and_validate_yaml(file_path):
+    try:
+        # Load the YAML file
+        yaml_data, yaml_content = load_yaml_file(file_path)
+    except ValueError as e:
+        error_report_path = f"{file_path}_error_report.yaml"
+        with open(error_report_path, 'w') as error_file:
+            error_file.write(str(e))
+        return f"Error loading YAML: {e}. Error report saved to {error_report_path}"
+
+    # Step 1: Run yamllint checks
+    lint_issues = run_yamllint(yaml_content)
+    
+    # Step 2: Check for duplicate keys
+    duplicate_key_result = check_duplicate_keys(yaml_content)
+
+    # Step 3: Check for unique paths under tdFrameworkFiles
+    unique_path_result = check_unique_paths(yaml_data)
+
+    # Collect all errors
+    errors = lint_issues
+    if "No duplicate keys found." not in duplicate_key_result:
+        errors.append(duplicate_key_result)
+    if "All paths under 'tdFrameworkFiles' are unique." not in unique_path_result:
+        errors.append(unique_path_result)
+
+    # If there are any errors, create an error report file
+    if errors:
+        error_report_path = f"{file_path}_error_report.yaml"
+        with open(error_report_path, 'w') as error_file:
+            for error in errors:
+                error_file.write(error + '\n')
+        return f"Errors found. Error report saved to {error_report_path}"
+
+    # If no errors, print a success message
+    return "YAML validation and checks completed successfully. No issues found."
+
+# Entry point for the script
+if __name__ == "__main__":
+    # User input for the YAML file name
+    file_path = input("Enter the YAML file path to be processed: ")
+    
+    # Check and validate the YAML
+    result = check_and_validate_yaml(file_path)
+    print(result)
