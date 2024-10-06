@@ -1,0 +1,72 @@
+import os
+import io
+from ruamel.yaml import YAML
+from yamllint import linter, config
+
+# Function to load and validate YAML using buffer IO
+def load_yaml_with_buffer(file_path):
+    yaml = YAML()
+    
+    try:
+        # Using buffer IO to read the YAML file
+        with io.open(file_path, 'r', encoding='utf-8') as file_buffer:
+            yaml_data = yaml.load(file_buffer)
+        return yaml_data
+    except Exception as e:
+        raise ValueError(f"YAML syntax error: {e}")
+
+# Function to run yamllint with a max line length of 1000
+def run_yamllint(yaml_string):
+    yamllint_config = """
+    extends: default
+    rules:
+      line-length:
+        max: 1000  # Maximum line length
+        allow-non-breakable-inline-mappings: true
+      trailing-spaces: enable  # Ensure no trailing spaces
+      indentation:
+        spaces: 2  # Enforce 2-space indentation
+    """
+    
+    config_obj = config.YamlLintConfig(yamllint_config)
+    lint_issues = list(linter.run(yaml_string, config_obj))
+
+    # Raise an exception if there are linting issues
+    if lint_issues:
+        error_messages = "\n".join([str(issue) for issue in lint_issues])
+        raise ValueError(f"YAML linting issues found:\n{error_messages}")
+
+# Main function to validate the YAML file
+def validate_yaml(file_path):
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File '{file_path}' does not exist.")
+    
+    # Load the YAML file and validate syntax
+    try:
+        yaml_data = load_yaml_with_buffer(file_path)
+        print("YAML loaded successfully with no syntax errors.")
+    except Exception as e:
+        raise ValueError(f"YAML loading failed: {e}")
+
+    # Read the raw YAML string for linting (use buffer IO)
+    try:
+        with io.open(file_path, 'r', encoding='utf-8') as file_buffer:
+            yaml_string = file_buffer.read()
+        
+        # Run yamllint to check indentation, trailing spaces, and line length
+        run_yamllint(yaml_string)
+        print("YAML linting passed with no issues.")
+    except Exception as e:
+        raise ValueError(f"Linting error: {e}")
+
+# Example usage
+if __name__ == "__main__":
+    try:
+        # User input for YAML file path
+        file_path = input("Enter the YAML file path: ").strip()
+        
+        # Validate the YAML file
+        validate_yaml(file_path)
+        print("YAML validation completed successfully!")
+    except Exception as e:
+        print(f"Script execution failed: {e}")
