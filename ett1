@@ -3,7 +3,7 @@ from eth_account.messages import encode_defunct
 import hashlib
 
 # STEP 1: Registration ID (plaintext)
-registration_id = "a5d208b8e8fdd74dc2a8b7a9dd83a7b0"
+registration_id = "**"
 
 # STEP 2: Hex-encode the registration ID
 hex_encoded_id = registration_id.encode("utf-8").hex()
