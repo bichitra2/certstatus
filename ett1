@@ -1,0 +1,23 @@
+from eth_account import Account
+from eth_account.messages import encode_defunct
+import hashlib
+
+# STEP 1: Registration ID (plaintext)
+registration_id = "a5d208b8e8fdd74dc2a8b7a9dd83a7b0"
+
+# STEP 2: Hex-encode the registration ID
+hex_encoded_id = registration_id.encode("utf-8").hex()
+
+# STEP 3: Generate Ethereum account from SHA256(registration_id)
+private_key = hashlib.sha256(registration_id.encode()).hexdigest()
+account = Account.from_key(private_key)
+
+# STEP 4: Ethereum-style signing (sign the hex-encoded value)
+message = encode_defunct(hexstr=hex_encoded_id)
+signature = Account.sign_message(message, private_key=private_key).signature.hex()
+
+# STEP 5: Output
+print("Registration ID:", registration_id)
+print("Hex-encoded ID:", hex_encoded_id)
+print("Ethereum Address:", account.address)
+print("Signature:", signature)
