@@ -1,0 +1,20 @@
+from web3 import Web3
+
+# Connect to local node or Infura (HTTP or IPC)
+w3 = Web3(Web3.HTTPProvider("http://localhost:8545"))
+
+# Use an unlocked account (e.g., from geth)
+eth_account = w3.eth.accounts[0]
+
+# Hex encode registration ID
+registration_id = "**"
+hex_encoded_id = registration_id.encode("utf-8").hex()
+
+# Sign the message using the node's account
+signature = w3.eth.sign(eth_account, hexstr=hex_encoded_id)
+
+# Output
+print("Registration ID:", registration_id)
+print("Hex-encoded ID:", hex_encoded_id)
+print("Ethereum Address:", eth_account)
+print("Signature:", signature.hex())
