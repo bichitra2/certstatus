@@ -1,0 +1,37 @@
+# Registration ID (plaintext)
+registration_id = "**"
+
+# Step 1: Encode to hex (if not already hex)
+hex_encoded = registration_id.encode("utf-8").hex()
+
+# Step 2: Convert hex string to bytes using ISO-8859-1 (extended 8-bit)
+iso_encoded = bytes.fromhex(hex_encoded).decode('ISO-8859-1')
+
+# Output for Web3.js or Geth input
+print("ISO-8859-1 Encoded Hex (for signing):", iso_encoded)
+💡 This is now ready to be passed into Web3.js/Geth for signing.
+
+--
+from eth_account import Account
+from eth_account.messages import encode_defunct
+import hashlib
+
+# Step 1: Message to sign (hex string as input)
+hex_message = "6135643230386238653866646437346463326138623761396464383361376230"
+
+# Step 2: Generate private key from something (e.g., SHA256 of registration ID)
+registration_id = "a5d208b8e8fdd74dc2a8b7a9dd83a7b0"
+private_key = hashlib.sha256(registration_id.encode('utf-8')).hexdigest()
+
+# Step 3: Create Ethereum account
+account = Account.from_key(private_key)
+
+# Step 4: Encode the message (hex string as bytes) for Ethereum-style signing
+message = encode_defunct(hexstr=hex_message)
+
+# Step 5: Sign the message
+signed = Account.sign_message(message, private_key=private_key)
+
+# Step 6: Output signature and address
+print("Ethereum Address:", account.address)
+print("Signature:", signed.signature.hex())
