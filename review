@@ -1,0 +1,23 @@
+review
+It lets you:
+• Improve code quality
+• Learn from others and improve software engineering skills
+
+
+You can use these templates to give clear and collaborative feedback:
+
+✓ I think it'd be better if we...
+✓ This solution wouldn't work because...
+✓ Great catch! Just one small suggestion…
+
+✓ Let’s consider refactoring this because...
+✓ Do we have a test covering this scenario?
+✓ This part is hard to follow, so could you please...
+
+✓ Let’s address this now to avoid technical debt later.
+✓ Let’s align this with our team’s standards for consistency.
+✓ I noticed a potential performance issue here, so maybe we can...
+
+
+Remember, code review is about teamwork, not fighting.
+And good code reviews shouldn't slow down the development process.
