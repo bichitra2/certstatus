@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+
+import tkinter as tk
+from tkinter import messagebox
+import os
+
+# Functions to create scripts
+def create_server_status_script(service_name):
+    script = f"""#!/bin/bash
+systemctl status {service_name}
+"""
+    with open("server_status.sh", "w") as f:
+        f.write(script)
+    os.chmod("server_status.sh", 0o755)
+
+def create_backend_connection_script(url):
+    script = f"""#!/bin/bash
+curl -I {url}
+"""
+    with open("backend_connection.sh", "w") as f:
+        f.write(script)
+    os.chmod("backend_connection.sh", 0o755)
+
+def create_cert_validity_script(host, port=443):
+    script = f"""#!/bin/bash
+echo | openssl s_client -connect {host}:{port} 2>/dev/null | openssl x509 -noout -enddate
+"""
+    with open("certificate_validity.sh", "w") as f:
+        f.write(script)
+    os.chmod("certificate_validity.sh", 0o755)
+
+# GUI function
+def generate_scripts():
+    service_name = entry_service.get().strip()
+    backend_url = entry_backend.get().strip()
+    cert_host = entry_cert.get().strip()
+    
+    if not service_name or not backend_url or not cert_host:
+        messagebox.showerror("Error", "Please fill in all fields!")
+        return
+    
+    create_server_status_script(service_name)
+    create_backend_connection_script(backend_url)
+    create_cert_validity_script(cert_host)
+    
+    messagebox.showinfo("Success", "Scripts created:\n- server_status.sh\n- backend_connection.sh\n- certificate_validity.sh")
+
+# Tkinter GUI setup
+root = tk.Tk()
+root.title("Linux Script Generator")
+
+# Labels
+tk.Label(root, text="Linux Service Name:").grid(row=0, column=0, sticky="e", padx=5, pady=5)
+tk.Label(root, text="Backend URL:").grid(row=1, column=0, sticky="e", padx=5, pady=5)
+tk.Label(root, text="Certificate Host:").grid(row=2, column=0, sticky="e", padx=5, pady=5)
+
+# Entry fields
+entry_service = tk.Entry(root, width=40)
+entry_service.grid(row=0, column=1, padx=5, pady=5)
+entry_backend = tk.Entry(root, width=40)
+entry_backend.grid(row=1, column=1, padx=5, pady=5)
+entry_cert = tk.Entry(root, width=40)
+entry_cert.grid(row=2, column=1, padx=5, pady=5)
+
+# Button
+tk.Button(root, text="Generate Scripts", command=generate_scripts, bg="green", fg="white").grid(row=3, column=0, columnspan=2, pady=15)
+
+root.mainloop()
