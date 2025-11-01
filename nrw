@@ -1,0 +1,39 @@
+import streamlit as st
+import os
+
+script_dir = "scripts"
+os.makedirs(script_dir, exist_ok=True)
+
+st.title("Linux Script Generator")
+
+option = st.selectbox("Select script category", 
+                      ["Server Status", "Backend Connection", "Certificate Validity"])
+
+filename = st.text_input("Script filename (without .sh)", value="myscript")
+
+if option == "Server Status":
+    service = st.text_input("Systemd service name", value="myapp.service")
+    tmpl = f"""#!/bin/bash
+systemctl is-active {service}
+"""
+
+elif option == "Backend Connection":
+    backend_url = st.text_input("Backend URL", value="https://backend.domain.com/health")
+    tmpl = f"""#!/bin/bash
+curl -s -o /dev/null -w "%{{http_code}}" {backend_url}
+"""
+
+elif option == "Certificate Validity":
+    cert_path = st.text_input("Certificate path", value="/etc/ssl/certs/myapp.crt")
+    tmpl = f"""#!/bin/bash
+end_date=$(openssl x509 -enddate -noout -in {cert_path} | cut -d= -f2)
+echo $end_date
+"""
+
+if st.button("Generate Script"):
+    fpath = os.path.join(script_dir, filename + ".sh")
+    with open(fpath, "w") as f:
+        f.write(tmpl)
+    os.chmod(fpath, 0o755)
+    st.success(f"Script created: {fpath}")
+    st.code(tmpl)
